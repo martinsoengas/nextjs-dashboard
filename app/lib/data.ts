@@ -12,6 +12,12 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 
+// PRISMA
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
 export async function fetchRevenue() {
   // Added noStore() here to prevent the response from being cached.
   noStore();
@@ -171,15 +177,22 @@ export async function fetchInvoiceById(id: string) {
 export async function fetchCustomers() {
   noStore();
   try {
-    const data = await sql<CustomerField>`
-      SELECT
-        id,
-        name
-      FROM customers
-      ORDER BY name ASC
-    `;
+    // const data = await sql<CustomerField>`
+    //   SELECT
+    //     id,
+    //     name
+    //   FROM customers
+    //   ORDER BY name ASC
+    // `;
 
-    const customers = data.rows;
+    // const customers = data.rows;
+
+    const customers = await prisma.customers.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
     return customers;
   } catch (err) {
     console.error('Database Error:', err);
@@ -220,6 +233,62 @@ export async function fetchFilteredCustomers(query: string) {
     throw new Error('Failed to fetch customer table.');
   }
 }
+
+// export async function fetchFilteredCustomers(query: string) {
+//   try {
+//     const customers = await prisma.customers.findMany({
+//       where: {
+//         OR: [
+//           { name: { contains: query, mode: 'insensitive' } },
+//           { email: { contains: query, mode: 'insensitive' } },
+//         ],
+//       },
+//       orderBy: {
+//         name: 'asc',
+//       },
+//     });
+
+//     const customersWithInvoices = await Promise.all(
+//       customers.map(async (customer) => {
+//         const invoices = await prisma.invoices.groupBy({
+//           by: ['status'],
+//           where: {
+//             customer_id: customer.id,
+//           },
+//           _sum: {
+//             amount: true,
+//           },
+//           _count: {
+//             _all: true,
+//           },
+//         });
+
+//         let total_invoices = 0;
+//         let total_pending = 0;
+//         let total_paid = 0;
+
+//         invoices.forEach((invoice) => {
+//           total_invoices += invoice._count._all;
+//           if (invoice.status === 'pending')
+//             total_pending += invoice._sum.amount!;
+//           if (invoice.status === 'paid') total_paid += invoice._sum.amount!;
+//         });
+
+//         return {
+//           ...customer,
+//           total_invoices,
+//           total_pending: formatCurrency(total_pending),
+//           total_paid: formatCurrency(total_paid),
+//         };
+//       }),
+//     );
+
+//     return customersWithInvoices;
+//   } catch (err) {
+//     console.error('Database Error:', err);
+//     throw new Error('Failed to fetch customer table.');
+//   }
+// }
 
 export async function getUser(email: string) {
   noStore();
